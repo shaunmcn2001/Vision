@@ -1,4 +1,4 @@
-import os, io, json, datetime, zipfile, tempfile, zipfile as zf
+import os, io, json, datetime, zipfile as zf, tempfile
 from typing import List, Optional
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
