@@ -1,17 +1,28 @@
-yaml
 services:
   - type: web
-    name: gee-indices-exporter
+    name: senditall-download-data
     env: python
-    plan: starter
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app:app --host 0.0.0.0 --port 10000
+    plan: free
+    autoDeploy: true
+    buildCommand: |
+      python -V
+      pip install --upgrade pip setuptools wheel
+      pip install --prefer-binary -r requirements.txt
+    startCommand: |
+      # choose ONE:
+      # 1) If you have a FastAPI app in app.py
+      uvicorn app:app --host 0.0.0.0 --port 10000
+      # 2) If this is a CLI/worker script instead, replace the line above with:
+      # python main.py
     envVars:
-      - key: EE_SERVICE_ACCOUNT_EMAIL
-        sync: false
-      - key: EE_PROJECT
-        sync: false
-      - key: GCS_BUCKET
-        sync: false
-      - key: GOOGLE_APPLICATION_CREDENTIALS_JSON
-        sync: false
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: PIP_PREFER_BINARY
+        value: "1"
+      - key: PIP_NO_BUILD_ISOLATION
+        value: "0"
+      - key: PIP_DISABLE_PIP_VERSION_CHECK
+        value: "1"
+      # Add your own secrets below:
+      # - key: SOME_API_KEY
+      #   sync: false
