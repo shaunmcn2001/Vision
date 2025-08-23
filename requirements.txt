@@ -1,21 +1,9 @@
---require-hashes=false
---no-binary=:none:
---only-binary=:all:
-
-# Core (adjust to match your project)
-requests
-httpx
-pandas
-lxml
-beautifulsoup4
-tqdm
-rich
-pydantic
-orjson
-
-# If you expose an API for kicks/health checks:
-fastapi
-uvicorn[standard]
-
-# Always last: constraints
--c constraints.txt
+fastapi==0.114.1
+uvicorn[standard]==0.30.6
+earthengine-api==1.1.1
+google-cloud-storage==2.17.0
+pyogrio==0.9.0
+shapely==2.0.5
+numpy==1.26.4
+pandas==2.2.2
+python-multipart==0.0.9
