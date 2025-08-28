@@ -72,3 +72,13 @@ Streams a ZIP to your browser containing all files for that job.
 - Empty months export as fully **masked** images (no bogus zeros).
 - For huge jobs, consider splitting years or indices across runs.
 - This app writes to **GCS** (not Drive). You can share signed URLs or download zips via the endpoint above.
+
+## Python Version / Pandas Build Note
+
+This application currently requires **Python < 3.13** due to a build failure encountered when deploying pandas 2.2.2 with Python 3.13.
+
+**Issue:** When using Python 3.13, pandas 2.2.2 attempts to build from source using Meson/Cython, which fails with the error: "standard attributes in middle of decl-specifiers". This occurs because there are no prebuilt wheels available for pandas 2.2.2 on Python 3.13 yet, forcing a source build path that fails due to Cython-generated C++ attribute placement errors.
+
+**Mitigation:** The application is constrained to Python < 3.13 in the requirements and deployment configuration. This avoids the unsupported build path until upstream pandas wheels become available for Python 3.13.
+
+**Future Updates:** Once pandas provides prebuilt wheels for Python 3.13, the version constraint can be removed from `requirements.txt` and the deployment files can be updated to support Python 3.13.

@@ -5,5 +5,7 @@ google-cloud-storage==2.17.0
 pyogrio==0.9.0
 shapely==2.0.5
 numpy==1.26.4
-pandas==2.2.2
+# pandas 2.2.2 requires Python < 3.13 due to Meson/Cython build failures
+# When pandas 2.2.2 wheels become available for Python 3.13, remove the version marker
+pandas==2.2.2 ; python_version < "3.13"
 python-multipart==0.0.9
