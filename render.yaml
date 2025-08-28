@@ -3,7 +3,7 @@ services:
     name: gee-indices-exporter
     env: python
     plan: starter
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port 10000
     envVars:
       - key: EE_SERVICE_ACCOUNT_EMAIL
