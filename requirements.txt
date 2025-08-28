@@ -1,5 +1,4 @@
 
-# Lean, binary-friendly set (no heavy GDAL stack)
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
 earthengine-api==1.2.0

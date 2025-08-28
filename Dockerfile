@@ -13,4 +13,5 @@ RUN pip install --upgrade pip &&     pip install --only-binary=:all: --no-build-
 COPY . /app
 
 EXPOSE 10000
+
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "10000"]
