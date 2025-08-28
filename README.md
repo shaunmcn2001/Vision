@@ -34,7 +34,7 @@ A tiny FastAPI app that:
    - New → **Web Service** → Connect this repo.
    - `render.yaml` is included; Render will use:
      ```
-     build: pip install --upgrade pip && pip install -r requirements.txt
+     build: pip install --upgrade pip setuptools wheel && pip install -r requirements.txt
      start: uvicorn main:app --host 0.0.0.0 --port 10000
      ```
    - The app requires **Python 3.11+** (specified in `runtime.txt`).
@@ -45,6 +45,14 @@ A tiny FastAPI app that:
      - `GOOGLE_APPLICATION_CREDENTIALS_JSON` = **the full JSON** contents of the key file
 
 8) **Open the app** once it deploys.
+
+### Deployment Troubleshooting
+
+If you encounter Python version issues on Render:
+- The `runtime.txt` file specifies Python 3.11.10 (required for numpy 1.26.4+)
+- Ensure all environment variables are set correctly as secrets
+- Check Render logs for specific error messages during build/start phases
+- The app requires internet access for Google Earth Engine API calls
 
 ## Usage
 
