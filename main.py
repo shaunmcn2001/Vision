@@ -174,6 +174,16 @@ def list_blobs(prefix: str):
 
 # -------------------- API --------------------
 @app.get("/")
+def root():
+    return {
+        "ok": True,
+        "message": "VisionZones API running",
+        "endpoints": ["/healthz", "/start (POST form-data)", "/status?job_id=...", "/download-zip?job_id=..."],
+        "docs": "/docs"
+    }
+
+
+@app.get("/")
 def home():
     return {
         "ok": True,
