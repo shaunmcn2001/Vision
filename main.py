@@ -14,19 +14,47 @@ from shapely.geometry import mapping
 from shapely.ops import unary_union
 
 # -------------------- ENV / CONFIG --------------------
-EE_SERVICE_ACCOUNT_EMAIL = os.environ["EE_SERVICE_ACCOUNT_EMAIL"]
-EE_PROJECT               = os.environ["EE_PROJECT"]
-GCS_BUCKET               = os.environ["GCS_BUCKET"]
-GOOGLE_APPLICATION_CREDENTIALS_JSON = os.environ["GOOGLE_APPLICATION_CREDENTIALS_JSON"]
+def get_env_var(name: str, required: bool = True) -> str:
+    """Get environment variable with better error handling."""
+    value = os.environ.get(name)
+    if required and not value:
+        raise ValueError(f"Required environment variable {name} is not set. Please check your deployment configuration.")
+    return value
 
-# Earth Engine init with service account
-sa_key = json.loads(GOOGLE_APPLICATION_CREDENTIALS_JSON)
-credentials = ee.ServiceAccountCredentials(EE_SERVICE_ACCOUNT_EMAIL, key_data=json.dumps(sa_key))
-ee.Initialize(credentials, project=EE_PROJECT)
+# Environment variables - will fail gracefully if not set during import
+try:
+    EE_SERVICE_ACCOUNT_EMAIL = get_env_var("EE_SERVICE_ACCOUNT_EMAIL")
+    EE_PROJECT = get_env_var("EE_PROJECT")
+    GCS_BUCKET = get_env_var("GCS_BUCKET")
+    GOOGLE_APPLICATION_CREDENTIALS_JSON = get_env_var("GOOGLE_APPLICATION_CREDENTIALS_JSON")
+except ValueError as e:
+    print(f"Configuration Error: {e}")
+    print("This app requires Google Cloud and Earth Engine credentials.")
+    print("Please set the required environment variables as described in the README.")
+    # Set dummy values for development/testing
+    EE_SERVICE_ACCOUNT_EMAIL = "dummy@example.com"
+    EE_PROJECT = "dummy-project"
+    GCS_BUCKET = "dummy-bucket"
+    GOOGLE_APPLICATION_CREDENTIALS_JSON = "{}"
 
-# GCS client
-gcs = storage.Client.from_service_account_info(sa_key)
-bucket = gcs.bucket(GCS_BUCKET)
+# Initialize Earth Engine and GCS only if credentials are properly set
+try:
+    sa_key = json.loads(GOOGLE_APPLICATION_CREDENTIALS_JSON)
+    credentials = ee.ServiceAccountCredentials(EE_SERVICE_ACCOUNT_EMAIL, key_data=json.dumps(sa_key))
+    ee.Initialize(credentials, project=EE_PROJECT)
+    
+    # GCS client
+    gcs = storage.Client.from_service_account_info(sa_key)
+    bucket = gcs.bucket(GCS_BUCKET)
+    
+    # Flag to indicate if services are properly initialized
+    SERVICES_INITIALIZED = True
+except Exception as e:
+    print(f"Warning: Could not initialize Google Cloud services: {e}")
+    print("The app will start but API endpoints requiring these services will return errors.")
+    gcs = None
+    bucket = None
+    SERVICES_INITIALIZED = False
 
 app = FastAPI(title="Sentinel-2 Indices Exporter", version="1.1.0")
 
@@ -170,6 +198,8 @@ def read_boundary_to_ee_geometry(upload: UploadFile) -> ee.Geometry:
 
 # -------------------- HELPERS --------------------
 def list_blobs(prefix: str):
+    if not SERVICES_INITIALIZED or not bucket:
+        raise HTTPException(503, "Google Cloud Storage not available. Please check your credentials.")
     return list(bucket.list_blobs(prefix=prefix))
 
 # -------------------- API --------------------
@@ -186,6 +216,14 @@ def home():
 
 @app.get("/health")
 def health():
+    if not SERVICES_INITIALIZED:
+        return {
+            "ok": False, 
+            "error": "Google Cloud services not initialized", 
+            "bucket": GCS_BUCKET if 'GCS_BUCKET' in globals() else "not configured", 
+            "project": EE_PROJECT if 'EE_PROJECT' in globals() else "not configured",
+            "message": "Please check your environment variables: EE_SERVICE_ACCOUNT_EMAIL, EE_PROJECT, GCS_BUCKET, GOOGLE_APPLICATION_CREDENTIALS_JSON"
+        }
     return {"ok": True, "bucket": GCS_BUCKET, "project": EE_PROJECT}
 
 @app.post("/start")
@@ -205,6 +243,10 @@ async def start_job(
     - One GeoTIFF per month per index
     - Mask out ESA WorldCover classes (trees=10, water=80, built=50 by default)
     """
+    
+    if not SERVICES_INITIALIZED:
+        raise HTTPException(503, "Google Cloud and Earth Engine services not available. Please check your environment variables.")
+    
     try:
         aoi = read_boundary_to_ee_geometry(file)
     except HTTPException as he:
@@ -285,7 +327,7 @@ def download_zip(job_id: str, index: Optional[str] = None):
 
     def stream():
         with io.BytesIO() as mem:
-            with zipfile.ZipFile(mem, mode="w", compression=zipfile.ZIP_DEFLATED) as z:
+            with zf.ZipFile(mem, mode="w", compression=zf.ZIP_DEFLATED) as z:
                 for b in blobs:
                     arcname = "/".join(b.name.split("/")[1:])  # strip job_id
                     z.writestr(arcname, b.download_as_bytes())
