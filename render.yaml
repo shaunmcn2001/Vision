@@ -1,10 +1,17 @@
-
 services:
   - type: web
     name: vision-zones
     env: docker
-    plan: starter
+    plan: starter             # or 'standard' when you scale
+    region: singapore         # pick closest to your users (or oregon/frankfurt/etc)
     autoDeploy: true
+    healthCheckPath: /healthz
+    numInstances: 1
+    # Optional autoscaling for paid plans:
+    # autoscaling:
+    #   minInstances: 1
+    #   maxInstances: 3
+    #   targetMemoryPercent: 80
     envVars:
       - key: EE_PROJECT
         sync: false
