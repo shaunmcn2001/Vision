@@ -1,3 +1,4 @@
+
 services:
   - type: web
     name: vision-zones
@@ -15,7 +16,7 @@ services:
         sync: false
       - key: GCS_BUCKET
         sync: false
-      - key: APP_BASE_URL
+      - key: FIRESTORE_PROJECT_ID
         sync: false
       - key: REDIS_URL
         sync: false
@@ -34,6 +35,8 @@ services:
       - key: GOOGLE_APPLICATION_CREDENTIALS_JSON
         sync: false
       - key: GCS_BUCKET
+        sync: false
+      - key: FIRESTORE_PROJECT_ID
         sync: false
       - key: REDIS_URL
         sync: false

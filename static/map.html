@@ -1,0 +1,108 @@
+
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>VisionZones — Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    #app { display: grid; grid-template-columns: 320px 1fr; height: 100vh; }
+    aside { border-right: 1px solid #e5e7eb; padding: 12px; overflow: auto; }
+    h2 { margin: 8px 0 12px; }
+    label { font-size: 12px; font-weight: 600; display: block; margin-top: 8px; }
+    select, input { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #d1d5db; }
+    button { padding: 8px 10px; border: none; border-radius: 8px; background:#111827; color: white; cursor: pointer; margin-top:8px; }
+    #map { height: 100%; width: 100%; }
+    .list { margin-top: 8px; max-height: 40vh; overflow:auto; border:1px solid #eee; border-radius:8px; }
+    .item { padding: 8px; border-bottom:1px solid #eee; cursor: pointer; }
+    .item:hover { background:#f9fafb; }
+    .small { font-size: 12px; color:#6b7280; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <aside>
+      <h2>Paddocks</h2>
+      <div class="list" id="paddockList">Loading…</div>
+
+      <h2 style="margin-top:16px;">Layer</h2>
+      <label>Type</label>
+      <select id="layerType">
+        <option value="ndvi_median">NDVI (Median)</option>
+        <option value="zones">Zones (k=5)</option>
+      </select>
+      <label>Start year</label>
+      <input id="startYear" type="number" placeholder="2018"/>
+      <label>End year</label>
+      <input id="endYear" type="number" placeholder="2025"/>
+      <button id="showLayer">Show Layer</button>
+      <div id="status" class="small"></div>
+    </aside>
+    <div id="map"></div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const api = location.origin;
+    const map = L.map('map').setView([-27.47, 153.03], 8); // SE QLD default
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    let selectedPaddock = null;
+    let eeLayer = null;
+
+    async function fetchPaddocks() {
+      const res = await fetch(api + "/paddocks");
+      const data = await res.json();
+      const list = document.getElementById("paddockList");
+      list.innerHTML = "";
+      data.items.forEach(p => {
+        const div = document.createElement("div");
+        div.className = "item";
+        div.innerHTML = `<b>${p.name}</b><div class="small">${p.id}</div>`;
+        div.onclick = () => selectPaddock(p);
+        list.appendChild(div);
+      });
+    }
+
+    function selectPaddock(p) {
+      selectedPaddock = p;
+      if (p.bounds) {
+        const [[minx, miny, maxx, maxy]] = [p.bounds];
+        map.fitBounds([[miny, minx], [maxy, maxx]]);
+      }
+      // draw boundary
+      if (window.boundaryLayer) map.removeLayer(window.boundaryLayer);
+      window.boundaryLayer = L.geoJSON(p.geometry, {style:{color:'#111827', weight:2}}).addTo(map);
+    }
+
+    async function showLayer() {
+      if (!selectedPaddock) { alert("Pick a paddock first."); return; }
+      const type = document.getElementById("layerType").value;
+      const startYear = document.getElementById("startYear").value || 2018;
+      const endYear = document.getElementById("endYear").value || 2025;
+
+      document.getElementById("status").textContent = "Requesting tiles…";
+      const url = `${api}/tiles?type=${encodeURIComponent(type)}&paddock_id=${encodeURIComponent(selectedPaddock.id)}&start_year=${startYear}&end_year=${endYear}`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        const err = await res.json().catch(()=>({detail:res.statusText}));
+        document.getElementById("status").textContent = "Error: " + (err.detail || res.statusText);
+        return;
+      }
+      const data = await res.json();
+      document.getElementById("status").textContent = "Layer ready";
+
+      if (eeLayer) map.removeLayer(eeLayer);
+      eeLayer = L.tileLayer(data.tile_url, { attribution: "Google Earth Engine" });
+      eeLayer.addTo(map);
+    }
+
+    document.getElementById("showLayer").onclick = showLayer;
+    fetchPaddocks();
+  </script>
+</body>
+</html>

@@ -1,14 +1,12 @@
 
-import io
+import io, zipfile
 from typing import Iterator
 from google.cloud import storage
-import zipfile
 
 def zip_gcs_prefix(bucket_name: str, prefix: str) -> Iterator[bytes]:
     client = storage.Client()
     bucket = client.bucket(bucket_name)
     blobs = list(client.list_blobs(bucket_or_name=bucket, prefix=prefix))
-
     mem = io.BytesIO()
     with zipfile.ZipFile(mem, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
         for b in blobs:

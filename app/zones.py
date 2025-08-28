@@ -1,4 +1,5 @@
-import os
+
+import os, time
 from typing import Optional, Dict, Any
 import ee
 
@@ -58,7 +59,6 @@ def run_zone_export(job_id: str, geojson: Dict[str, Any], k: int = 5,
     )
     zone_tif_task.start()
 
-    import time
     while zone_tif_task.active():
         time.sleep(10)
 

@@ -1,18 +1,14 @@
+
 import os
 from typing import Callable, Any, Dict
-from rq import Queue, Connection
+from rq import Queue
 from redis import Redis
 
-def get_redis():
+def get_queue():
     url = os.environ.get("REDIS_URL")
     if not url:
         return None
-    return Redis.from_url(url, decode_responses=False)
-
-def get_queue():
-    r = get_redis()
-    if not r:
-        return None
+    r = Redis.from_url(url, decode_responses=False)
     return Queue("visionzones", connection=r)
 
 def enqueue(func: Callable, **kwargs) -> Dict[str, Any]:
