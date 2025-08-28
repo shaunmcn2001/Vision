@@ -285,7 +285,7 @@ def download_zip(job_id: str, index: Optional[str] = None):
 
     def stream():
         with io.BytesIO() as mem:
-            with zipfile.ZipFile(mem, mode="w", compression=zipfile.ZIP_DEFLATED) as z:
+            with zf.ZipFile(mem, mode="w", compression=zf.ZIP_DEFLATED) as z:
                 for b in blobs:
                     arcname = "/".join(b.name.split("/")[1:])  # strip job_id
                     z.writestr(arcname, b.download_as_bytes())
