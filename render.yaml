@@ -18,3 +18,26 @@ services:
         sync: false
       - key: APP_BASE_URL
         sync: false
+      - key: REDIS_URL
+        sync: false   # optional: set to enable background worker queue
+
+  - type: worker
+    name: vision-zones-worker
+    env: docker
+    plan: starter
+    region: singapore
+    autoDeploy: true
+    # This service will start the RQ worker to consume queued jobs
+    envVars:
+      - key: EE_PROJECT
+        sync: false
+      - key: EE_SERVICE_ACCOUNT_EMAIL
+        sync: false
+      - key: GOOGLE_APPLICATION_CREDENTIALS_JSON
+        sync: false
+      - key: GCS_BUCKET
+        sync: false
+      - key: REDIS_URL
+        sync: false
+    # Override the default CMD to launch the worker process
+    dockerCommand: ["python", "-m", "app.worker"]
