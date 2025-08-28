@@ -1,7 +1,7 @@
 
 services:
   - type: web
-    name: vision-zones
+    name: ndvi-viewer
     env: docker
     plan: starter
     region: singapore
@@ -14,30 +14,5 @@ services:
         sync: false
       - key: GOOGLE_APPLICATION_CREDENTIALS_JSON
         sync: false
-      - key: GCS_BUCKET
-        sync: false
       - key: FIRESTORE_PROJECT_ID
         sync: false
-      - key: REDIS_URL
-        sync: false
-
-  - type: worker
-    name: vision-zones-worker
-    env: docker
-    plan: starter
-    region: singapore
-    autoDeploy: true
-    envVars:
-      - key: EE_PROJECT
-        sync: false
-      - key: EE_SERVICE_ACCOUNT_EMAIL
-        sync: false
-      - key: GOOGLE_APPLICATION_CREDENTIALS_JSON
-        sync: false
-      - key: GCS_BUCKET
-        sync: false
-      - key: FIRESTORE_PROJECT_ID
-        sync: false
-      - key: REDIS_URL
-        sync: false
-    dockerCommand: ["python", "-m", "app.worker"]

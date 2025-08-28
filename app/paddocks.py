@@ -14,7 +14,6 @@ def _id_for_geom(geojson: Dict[str, Any]) -> str:
     return h
 
 def bounds_of(geojson: Dict[str, Any]):
-    # compute bbox [minx, miny, maxx, maxy]
     def coords(g):
         t = g.get("type")
         if t == "Polygon":
@@ -29,7 +28,6 @@ def bounds_of(geojson: Dict[str, Any]):
     if geojson.get("type")=="Feature":
         g = geojson["geometry"]
     elif geojson.get("type")=="FeatureCollection":
-        # naive: use first feature
         g = geojson["features"][0]["geometry"]
     else:
         g = geojson
@@ -57,8 +55,3 @@ def get_paddock(pid: str) -> Optional[Dict[str, Any]]:
     db = _client()
     snap = db.collection("paddocks").document(pid).get()
     return snap.to_dict() if snap.exists else None
-
-def delete_paddock(pid: str) -> bool:
-    db = _client()
-    db.collection("paddocks").document(pid).delete()
-    return True

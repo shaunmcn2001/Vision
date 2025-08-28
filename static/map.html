@@ -4,16 +4,16 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>VisionZones — Map</title>
+  <title>NDVI Viewer</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
-    #app { display: grid; grid-template-columns: 320px 1fr; height: 100vh; }
+    #app { display: grid; grid-template-columns: 340px 1fr; height: 100vh; }
     aside { border-right: 1px solid #e5e7eb; padding: 12px; overflow: auto; }
     h2 { margin: 8px 0 12px; }
     label { font-size: 12px; font-weight: 600; display: block; margin-top: 8px; }
-    select, input { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #d1d5db; }
-    button { padding: 8px 10px; border: none; border-radius: 8px; background:#111827; color: white; cursor: pointer; margin-top:8px; }
+    select, input, button { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #d1d5db; }
+    button { background:#111827; color: white; cursor: pointer; margin-top:8px; }
     #map { height: 100%; width: 100%; }
     .list { margin-top: 8px; max-height: 40vh; overflow:auto; border:1px solid #eee; border-radius:8px; }
     .item { padding: 8px; border-bottom:1px solid #eee; cursor: pointer; }
@@ -24,20 +24,21 @@
 <body>
   <div id="app">
     <aside>
-      <h2>Paddocks</h2>
+      <h2>Add paddock</h2>
+      <input id="padName" placeholder="Paddock name"/>
+      <input id="file" type="file" accept=".geojson,.json,.kml,.kmz,.zip" />
+      <button id="upload">Upload</button>
+      <div id="upStatus" class="small"></div>
+
+      <h2 style="margin-top:16px;">Paddocks</h2>
       <div class="list" id="paddockList">Loading…</div>
 
-      <h2 style="margin-top:16px;">Layer</h2>
-      <label>Type</label>
-      <select id="layerType">
-        <option value="ndvi_median">NDVI (Median)</option>
-        <option value="zones">Zones (k=5)</option>
-      </select>
+      <h2 style="margin-top:16px;">NDVI period</h2>
       <label>Start year</label>
       <input id="startYear" type="number" placeholder="2018"/>
       <label>End year</label>
       <input id="endYear" type="number" placeholder="2025"/>
-      <button id="showLayer">Show Layer</button>
+      <button id="showLayer">Show NDVI</button>
       <div id="status" class="small"></div>
     </aside>
     <div id="map"></div>
@@ -46,15 +47,13 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
     const api = location.origin;
-    const map = L.map('map').setView([-27.47, 153.03], 8); // SE QLD default
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19, attribution: '&copy; OpenStreetMap'
-    }).addTo(map);
+    const map = L.map('map').setView([-27.47, 153.03], 8);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19}).addTo(map);
 
     let selectedPaddock = null;
     let eeLayer = null;
 
-    async function fetchPaddocks() {
+    async function refreshList() {
       const res = await fetch(api + "/paddocks");
       const data = await res.json();
       const list = document.getElementById("paddockList");
@@ -70,24 +69,20 @@
 
     function selectPaddock(p) {
       selectedPaddock = p;
-      if (p.bounds) {
-        const [[minx, miny, maxx, maxy]] = [p.bounds];
-        map.fitBounds([[miny, minx], [maxy, maxx]]);
-      }
-      // draw boundary
       if (window.boundaryLayer) map.removeLayer(window.boundaryLayer);
       window.boundaryLayer = L.geoJSON(p.geometry, {style:{color:'#111827', weight:2}}).addTo(map);
+      if (p.bounds) {
+        const [minx, miny, maxx, maxy] = p.bounds;
+        map.fitBounds([[miny, minx],[maxy, maxx]]);
+      }
     }
 
-    async function showLayer() {
-      if (!selectedPaddock) { alert("Pick a paddock first."); return; }
-      const type = document.getElementById("layerType").value;
-      const startYear = document.getElementById("startYear").value || 2018;
-      const endYear = document.getElementById("endYear").value || 2025;
-
-      document.getElementById("status").textContent = "Requesting tiles…";
-      const url = `${api}/tiles?type=${encodeURIComponent(type)}&paddock_id=${encodeURIComponent(selectedPaddock.id)}&start_year=${startYear}&end_year=${endYear}`;
-      const res = await fetch(url);
+    document.getElementById("showLayer").onclick = async () => {
+      if (!selectedPaddock) { alert("Pick a paddock."); return; }
+      const sy = document.getElementById("startYear").value || 2018;
+      const ey = document.getElementById("endYear").value || 2025;
+      document.getElementById("status").textContent = "Requesting NDVI tiles…";
+      const res = await fetch(`${api}/tiles_ndvi?paddock_id=${encodeURIComponent(selectedPaddock.id)}&start_year=${sy}&end_year=${ey}`);
       if (!res.ok) {
         const err = await res.json().catch(()=>({detail:res.statusText}));
         document.getElementById("status").textContent = "Error: " + (err.detail || res.statusText);
@@ -95,14 +90,30 @@
       }
       const data = await res.json();
       document.getElementById("status").textContent = "Layer ready";
-
       if (eeLayer) map.removeLayer(eeLayer);
-      eeLayer = L.tileLayer(data.tile_url, { attribution: "Google Earth Engine" });
+      eeLayer = L.tileLayer(data.tile_url);
       eeLayer.addTo(map);
-    }
+    };
 
-    document.getElementById("showLayer").onclick = showLayer;
-    fetchPaddocks();
+    document.getElementById("upload").onclick = async () => {
+      const name = document.getElementById("padName").value.trim();
+      const file = document.getElementById("file").files[0];
+      if (!name || !file) { alert("Provide a name and a file."); return; }
+      const fd = new FormData();
+      fd.append("name", name);
+      fd.append("file", file);
+      document.getElementById("upStatus").textContent = "Uploading…";
+      const res = await fetch(api + "/upload-boundary", { method: "POST", body: fd });
+      const data = await res.json().catch(()=>({}));
+      if (res.ok) {
+        document.getElementById("upStatus").textContent = "Saved.";
+        await refreshList();
+      } else {
+        document.getElementById("upStatus").textContent = "Error: " + (data.detail || res.statusText);
+      }
+    };
+
+    refreshList();
   </script>
 </body>
 </html>
