@@ -1,23 +1,41 @@
 
 import os
 import json
-import tempfile
 from datetime import datetime
 from typing import Optional
+from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from concurrent.futures import ThreadPoolExecutor
 
 from .ee_client import ensure_ee
 from .jobs import JobRegistry, JobState
 from .zones import run_zone_export
 from .storage import zip_gcs_prefix
 
-app = FastAPI(title="VisionZones", version="0.1.0")
+app = FastAPI(title="VisionZones", version="0.1.1")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 executor = ThreadPoolExecutor(max_workers=2)
 jobs = JobRegistry()
+
+@app.get("/")
+def root():
+    return {
+        "ok": True,
+        "name": "VisionZones",
+        "version": "0.1.1",
+        "endpoints": ["/healthz", "/start", "/status", "/download-zip", "/docs"],
+    }
 
 @app.get("/healthz")
 def healthz():
@@ -35,7 +53,7 @@ async def start(
     k: int = Form(5)
 ):
     if file.content_type not in ("application/geo+json", "application/json", "text/plain"):
-        raise HTTPException(status_code=400, detail="Upload a GeoJSON file (application/geo+json).")
+        raise HTTPException(status_code=400, detail="Upload a GeoJSON file.")
 
     content = await file.read()
     try:
@@ -43,16 +61,13 @@ async def start(
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid JSON: {e}")
 
-    # Validate env
-    required_env = ["EE_PROJECT", "GCS_BUCKET"]
-    for key in required_env:
+    for key in ["EE_PROJECT", "GCS_BUCKET"]:
         if not os.getenv(key):
             raise HTTPException(status_code=500, detail=f"Missing env var: {key}")
 
     job_id = f"job_{datetime.utcnow().strftime('%Y-%m-%d_%H%M%S')}"
     jobs.create(job_id)
 
-    # Kick off async task
     def _task():
         jobs.update(job_id, JobState.RUNNING, "Initializing Earth Engine")
         try:
@@ -83,9 +98,6 @@ def download_zip(job_id: str):
 
     gcs_bucket = os.environ["GCS_BUCKET"]
     prefix = f"{job_id}/"
-
     stream = zip_gcs_prefix(bucket_name=gcs_bucket, prefix=prefix)
-    headers = {
-        "Content-Disposition": f"attachment; filename={job_id}.zip"
-    }
+    headers = {"Content-Disposition": f"attachment; filename={job_id}.zip"}
     return StreamingResponse(stream, headers=headers, media_type="application/zip")

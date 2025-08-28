@@ -9,16 +9,13 @@ def zip_gcs_prefix(bucket_name: str, prefix: str) -> Iterator[bytes]:
     bucket = client.bucket(bucket_name)
     blobs = list(client.list_blobs(bucket_or_name=bucket, prefix=prefix))
 
-    # Stream a ZIP in chunks
     mem = io.BytesIO()
     with zipfile.ZipFile(mem, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
         for b in blobs:
-            # Skip directory placeholders
             if b.name.endswith("/"):
                 continue
             data = b.download_as_bytes()
             arcname = b.name[len(prefix):] if b.name.startswith(prefix) else b.name
             zf.writestr(arcname, data)
     mem.seek(0)
-    # Yield entire buffer
     yield from iter(lambda: mem.read(1024 * 64), b"")
