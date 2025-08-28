@@ -1,4 +1,3 @@
-
 import os
 import json
 from datetime import datetime
@@ -6,7 +5,7 @@ from typing import Optional
 from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
-from fastapi.responses import StreamingResponse, JSONResponse, FileResponse, HTMLResponse
+from fastapi.responses import StreamingResponse, JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -16,13 +15,13 @@ from .jobs import JobState, jobs_registry as jobs
 from .zones import run_zone_export
 from .storage import zip_gcs_prefix
 from .queue import get_queue, enqueue
+from .kml_utils import maybe_kmz_to_geojson
 
-app = FastAPI(title="VisionZones", version="0.2.0")
+app = FastAPI(title="VisionZones", version="0.3.0")
 
-# Serve the simple UI at /ui
+# Serve UI
 app.mount("/ui", StaticFiles(directory="static", html=True), name="ui")
 
-# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -34,13 +33,8 @@ app.add_middleware(
 executor = ThreadPoolExecutor(max_workers=2)
 
 @app.get("/")
-def root():
-    return {
-        "ok": True,
-        "name": "VisionZones",
-        "version": "0.2.0",
-        "endpoints": ["/healthz", "/ui", "/start", "/status", "/download-zip", "/docs"],
-    }
+def root_redirect():
+    return RedirectResponse(url="/ui", status_code=307)
 
 @app.get("/healthz")
 def healthz():
@@ -67,14 +61,18 @@ async def start(
     end_year: Optional[int] = Form(None),
     k: int = Form(5)
 ):
-    if file.content_type not in ("application/geo+json", "application/json", "text/plain"):
-        raise HTTPException(status_code=400, detail="Upload a GeoJSON file (application/geo+json).")
+    filename = (file.filename or "").lower()
+    raw_bytes = await file.read()
 
-    content = await file.read()
+    # Convert KMZ/KML to GeoJSON if needed; else parse as GeoJSON
     try:
-        geojson = json.loads(content.decode("utf-8"))
+        geojson = maybe_kmz_to_geojson(filename, raw_bytes)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid JSON: {e}")
+        # If not KMZ/KML, assume JSON/GeoJSON
+        try:
+            geojson = json.loads(raw_bytes.decode("utf-8"))
+        except Exception:
+            raise HTTPException(status_code=400, detail=f"Invalid input ({e}). Provide GeoJSON or KMZ/KML.")
 
     for key in ["EE_PROJECT", "GCS_BUCKET"]:
         if not os.getenv(key):
@@ -83,15 +81,11 @@ async def start(
     job_id = f"job_{datetime.utcnow().strftime('%Y-%m-%d_%H%M%S')}"
     jobs.create(job_id)
 
-    # If REDIS_URL is configured, enqueue to worker; else run in a local thread
     if get_queue():
-        # enqueue background job
         enqueue(_start_sync_job, job_id=job_id, geojson=geojson, k=k,
                 start_year=start_year, end_year=end_year)
-        # Mark as RUNNING; worker will update status upon completion
         jobs.update(job_id, JobState.RUNNING, "Queued on worker")
     else:
-        # Fallback: run in-thread pool on the web service
         def _task():
             _start_sync_job(job_id, geojson, k, start_year, end_year)
         executor.submit(_task)

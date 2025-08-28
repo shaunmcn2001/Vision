@@ -1,6 +1,4 @@
-
 import os
-import time
 from rq import Worker, Queue, Connection
 from redis import Redis
 

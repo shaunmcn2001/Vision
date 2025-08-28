@@ -1,4 +1,3 @@
-
 from enum import Enum
 from typing import Dict, Any
 from datetime import datetime
@@ -33,5 +32,4 @@ class JobRegistry:
     def get(self, job_id: str):
         return self._jobs.get(job_id)
 
-# Global in-memory registry used by web service instances.
 jobs_registry = JobRegistry()

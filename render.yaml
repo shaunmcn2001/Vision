@@ -1,4 +1,3 @@
-
 services:
   - type: web
     name: vision-zones
@@ -19,7 +18,7 @@ services:
       - key: APP_BASE_URL
         sync: false
       - key: REDIS_URL
-        sync: false   # optional: set to enable background worker queue
+        sync: false
 
   - type: worker
     name: vision-zones-worker
@@ -27,7 +26,6 @@ services:
     plan: starter
     region: singapore
     autoDeploy: true
-    # This service will start the RQ worker to consume queued jobs
     envVars:
       - key: EE_PROJECT
         sync: false
@@ -39,5 +37,4 @@ services:
         sync: false
       - key: REDIS_URL
         sync: false
-    # Override the default CMD to launch the worker process
     dockerCommand: ["python", "-m", "app.worker"]

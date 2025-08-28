@@ -1,4 +1,3 @@
-
 const $ = (id) => document.getElementById(id);
 const statusBox = $("status");
 const actionsBox = $("actions");
@@ -25,7 +24,7 @@ $("reset").addEventListener("click", resetUI);
 $("run").addEventListener("click", async () => {
   const fileInput = $("file");
   if (!fileInput.files.length) {
-    alert("Please choose a GeoJSON file."); return;
+    alert("Please choose a file (.geojson or .kmz)."); return;
   }
   const form = new FormData();
   form.append("file", fileInput.files[0]);
@@ -63,7 +62,7 @@ $("run").addEventListener("click", async () => {
           setActions(`<span style="color:#b91c1c;">Job failed</span>`);
         }
       } catch (e) {
-        // just keep polling; transient errors possible
+        // keep polling
       }
     }, 3000);
   } catch (e) {
